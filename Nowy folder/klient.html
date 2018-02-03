@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Test Node.JS/WebSockets</title>
+		<meta charset="UTF-8">
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+		<script>
+			var socket;
+			var message = function(type, content) {
+				return {
+					'type': type,
+					'content': content
+				};
+			};
+			var sendMsg = function(msg) {
+				var s = JSON.stringify(msg);
+				socket.send(s);
+			}
+			var hideLoginForm = function() {
+				$("#unlogged").hide();
+				$("#logged").show();
+			};
+			var refreshGuestList = function(list) {
+				$("#guestList").empty();
+				for (var i = 0; i < list.length; i++) {
+					$("#guestList").append(
+						"<option>" + 
+						list[i].username + ": " +
+						list[i].account.toFixed(2) + 
+						"</option>"
+					);
+				}
+			};
+			var handleServerMessage = function(event) {
+				var msg = JSON.parse(event.data);
+				if (msg.type == 'msg') {
+					$('#message').append('<p>'+msg.content+'</p>');
+					$('#message').animate( {
+						scrollTop: $("#message")[0].scrollHeight
+					}, 100);
+				}
+				if (msg.type == 'accept') {
+					hideLoginForm();
+				}
+				if (msg.type == 'reject') {
+					$("#badmsg").text('Login jest juz zajety!');
+				}
+				if (msg.type == 'refresh') {
+					refreshGuestList(msg.content);
+				}
+				if (msg.type == 'price') {
+					$("#price").text(msg.content.toFixed(2));
+				}
+				if (msg.type == 'buy_confirm') {
+					$("#buyPrice").text(msg.content.toFixed(2));
+				}
+				if (msg.type == 'account') {
+					$("#account").text(msg.content.toFixed(2));
+					$("#buyBtn").show();
+				}
+			};
+			$(document).ready(function() {
+				$("#status").text("Nie polaczono!");
+				$("#logged").hide();
+				socket = new WebSocket("ws://localhost:8080", "gielda");
+				socket.addEventListener("open", function (evt){
+					$("#status").text("Polaczono!");
+				});
+				socket.addEventListener("error", function(evt){
+					$("#status").text("Wystapil blad!");
+				});
+				socket.addEventListener("close", function(evt) {
+					$("#status").text("Nie polaczono!");
+				});
+				socket.addEventListener("message", handleServerMessage);
+				$("#loginBtn").click(function(evt) {
+					var login = $("#loginTxt").val();
+					var msg = message('login', login);
+					sendMsg(msg);
+				});
+				$("#buyBtn").click(function(evt) {
+					$("#buyBtn").hide();
+					sendMsg(message('buy'));
+				});
+				$(window).bind('beforeunload', function() {
+					sendMsg(message('logout'));
+				});
+			});
+		</script>
+	</head>
+	<body>
+		Stan: <span id="status"></span><br />
+		<div id="unlogged">
+			<input id="loginTxt" /><input id="loginBtn" type="button" value="Zaloguj" /><br />
+			<span id="badmsg"></span>
+		</div>
+		<div id="logged">
+			<h1 id="price"></h1>
+			<h2 id="buyPrice"></h2>
+			<h2 id="account"></h2>
+			<input type="button" value="Kup!" id="buyBtn" style="width:300px" />
+			<div id="message" style="height:300px;overflow:scroll"></div>
+			<select multiple id="guestList" style="width:180px"></select>
+		</div>
+	</body>
+</html>
